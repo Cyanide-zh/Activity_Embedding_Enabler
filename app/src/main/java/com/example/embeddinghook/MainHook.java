@@ -1,6 +1,7 @@
 package com.example.embeddinghook;
 
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Rect;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -18,38 +19,57 @@ public class MainHook implements IXposedHookLoadPackage {
 
         XposedBridge.log("ActivityEmbeddingHook: [Injected] Target -> " + lpparam.packageName);
 
-        // 维度一：Hook Resources 的 updateConfiguration（仅传入 Configuration 参数，避免找不到 CompatibilityInfo）
+        // 维度一：直接 Hook Resources 的构造或获取 Configuration 的地方，
+        // 或者是 Hook Activity 的 attachBaseContext 统一修改其 Configuration 对象的 smallestScreenWidthDp
         try {
             XposedHelpers.findAndHookMethod(
-                "android.content.res.Resources",
+                "android.app.Activity",
                 lpparam.classLoader,
-                "updateConfiguration",
+                "onConfigurationChanged",
                 Configuration.class,
                 new XC_MethodHook() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                         Configuration config = (Configuration) param.args[0];
                         if (config != null) {
-                            // 强行把最小宽度和屏幕宽度改到 720dp（平板/折叠屏标准）
                             if (config.smallestScreenWidthDp < 600) {
-                                config.smallestScreenWidthDp = 720;
+                                config.smallestScreenWidthDp = 720; // 强行设为平板宽度
                             }
                             if (config.screenWidthDp < 720) {
                                 config.screenWidthDp = 1280;
-                            }
-                            if (config.screenHeightDp < 720) {
-                                config.screenHeightDp = 800;
                             }
                         }
                     }
                 }
             );
-            XposedBridge.log("ActivityEmbeddingHook: [Success] Hooked Resources.updateConfiguration for " + lpparam.packageName);
+            XposedBridge.log("ActivityEmbeddingHook: [Success] Hooked Activity.onConfigurationChanged for " + lpparam.packageName);
         } catch (Throwable e) {
-            XposedBridge.log("ActivityEmbeddingHook: [Failed] updateConfiguration -> " + e.getMessage());
+            XposedBridge.log("ActivityEmbeddingHook: [Failed] onConfigurationChanged -> " + e.getMessage());
         }
 
-        // 维度二：Hook WindowMetrics 的 getBounds 边界
+        // 维度二：Hook Resources 的 getConfiguration 方法，凡是应用读取 Configuration 时，直接篡改其宽度
+        try {
+            XposedHelpers.findAndHookMethod(
+                Resources.class,
+                "getConfiguration",
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        Configuration config = (Configuration) param.getResult();
+                        if (config != null) {
+                            if (config.smallestScreenWidthDp < 600) {
+                                config.smallestScreenWidthDp = 720;
+                            }
+                        }
+                    }
+                }
+            );
+            XposedBridge.log("ActivityEmbeddingHook: [Success] Hooked Resources.getConfiguration for " + lpparam.packageName);
+        } catch (Throwable e) {
+            XposedBridge.log("ActivityEmbeddingHook: [Failed] getConfiguration -> " + e.getMessage());
+        }
+
+        // 维度三：Hook WindowMetrics 的 getBounds 边界
         try {
             Class<?> windowMetricsClass = XposedHelpers.findClass("android.view.WindowMetrics", lpparam.classLoader);
             XposedHelpers.findAndHookMethod(windowMetricsClass, "getBounds", new XC_MethodHook() {
@@ -69,7 +89,7 @@ public class MainHook implements IXposedHookLoadPackage {
             XposedBridge.log("ActivityEmbeddingHook: [Failed] WindowMetrics -> " + e.getMessage());
         }
 
-        // 维度三：安全探测 SplitController
+        // 维度四：安全探测 SplitController
         try {
             Class<?> splitControllerClass = XposedHelpers.findClass(
                 "androidx.window.embedding.SplitController",
