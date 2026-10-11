@@ -1,3 +1,26 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.embeddinghook'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.embeddinghook"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
 dependencies {
+    // 必须放在 dependencies 闭包内部
     compileOnly 'de.robv.android.xposed:api:82'
 }
