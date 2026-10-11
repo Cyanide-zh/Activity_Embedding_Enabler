@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- 声明这是 Xposed 模块 -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <!-- 模块描述 -->
+        <meta-data
+            android:name="xposeddescription"
+            android:value="强行对不支持的设备开启 Activity Embedding 分屏布局,需选择目标应用到Xposed作用域中" />
+        <!-- 最低支持的 Xposed API 版本 -->
+        <meta-data
+            android:name="xposedminversion"
+            android:value="54" />
+    </application>
+
+</manifest>
