@@ -20,11 +20,10 @@ public class MainHook implements IXposedHookLoadPackage {
 
         XposedBridge.log("ActivityEmbeddingHook: [Injected] Target -> " + lpparam.packageName);
 
-        // 1. 欺骗尺寸：修改 Resources.getConfiguration
+        // 1. 欺骗尺寸：修改 Resources.getConfiguration（直接传 Class 和方法名）
         try {
             XposedHelpers.findAndHookMethod(
                 Resources.class,
-                lpparam.classLoader,
                 "getConfiguration",
                 new XC_MethodHook() {
                     @Override
