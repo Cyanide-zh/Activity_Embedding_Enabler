@@ -18,18 +18,13 @@ public class MainHook implements IXposedHookLoadPackage {
 
         XposedBridge.log("ActivityEmbeddingHook: [Injected] Target -> " + lpparam.packageName);
 
-        // ==========================================
-        // 维度一：Hook Configuration 的尺寸与最小宽度 (核心根源)
-        // Jetpack WindowManager 靠 smallestScreenWidthDp >= 600dp 来判定是否启用分屏
-        // ==========================================
+        // 维度一：Hook Resources 的 updateConfiguration（仅传入 Configuration 参数，避免找不到 CompatibilityInfo）
         try {
             XposedHelpers.findAndHookMethod(
                 "android.content.res.Resources",
                 lpparam.classLoader,
                 "updateConfiguration",
                 Configuration.class,
-                android.util.DisplayMetrics.class,
-                android.content.res.CompatibilityInfo.class,
                 new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -54,9 +49,7 @@ public class MainHook implements IXposedHookLoadPackage {
             XposedBridge.log("ActivityEmbeddingHook: [Failed] updateConfiguration -> " + e.getMessage());
         }
 
-        // ==========================================
         // 维度二：Hook WindowMetrics 的 getBounds 边界
-        // ==========================================
         try {
             Class<?> windowMetricsClass = XposedHelpers.findClass("android.view.WindowMetrics", lpparam.classLoader);
             XposedHelpers.findAndHookMethod(windowMetricsClass, "getBounds", new XC_MethodHook() {
@@ -76,9 +69,7 @@ public class MainHook implements IXposedHookLoadPackage {
             XposedBridge.log("ActivityEmbeddingHook: [Failed] WindowMetrics -> " + e.getMessage());
         }
 
-        // ==========================================
-        // 维度三：安全探测 SplitController（带独立防崩保护）
-        // ==========================================
+        // 维度三：安全探测 SplitController
         try {
             Class<?> splitControllerClass = XposedHelpers.findClass(
                 "androidx.window.embedding.SplitController",
@@ -86,7 +77,7 @@ public class MainHook implements IXposedHookLoadPackage {
             );
             XposedBridge.log("ActivityEmbeddingHook: [Success] Found SplitController in " + lpparam.packageName);
         } catch (Throwable e) {
-            XposedBridge.log("ActivityEmbeddingHook: [Info] SplitController not present (Normal for some apps)");
+            XposedBridge.log("ActivityEmbeddingHook: [Info] SplitController not present");
         }
     }
 }
