@@ -18,16 +18,24 @@ public class MainHook implements IXposedHookLoadPackage {
         // 2. Hook Jetpack WindowManager Extensions 的分屏支持状态判定
         // 现代支持 Activity Embedding 的 App 通常会调用 extensions 层的相关判断
         try {
+            Class<?> splitControllerClass = XposedHelpers.findClass(
+                "androidx.window.embedding.SplitController", 
+                lpparam.classLoader
+            );
+    
+            // 尝试 Hook 获取状态的方法或属性
             XposedHelpers.findAndHookMethod(
-                "androidx.window.extensions.embedding.SplitController",
-                lpparam.classLoader,
-                "getSplitSupportStatus", // 部分版本或厂商实现中可能方法名有所不同
+                splitControllerClass, 
+                "getSplitSupportStatus", 
                 new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        // 强制篡改返回值，使其返回表示支持分屏的状态（通常为布尔值或特定枚举）
-                        param.setResult(true);
-                        XposedBridge.log("ActivityEmbeddingHook: [Global] Faked split support to true in " + lpparam.packageName);
+                        // 如果返回的是枚举或特定对象，可以尝试将其篡改或直接返回对应可用状态
+                        Object result = param.getResult();
+                        if (result != null) {
+                            XposedBridge.log("SplitSupportStatus current: " + result.toString());
+                            // 若需要强行设为可用，可根据实际反编译出的枚举类进行替换
+                        }
                     }
                 }
             );
