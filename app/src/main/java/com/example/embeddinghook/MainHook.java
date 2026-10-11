@@ -88,7 +88,23 @@ public class MainHook implements IXposedHookLoadPackage {
                 }
             );
         } catch (Throwable ignored) {}
-
+        //4 在 handleLoadPackage 中加入针对 Flags 的补全
+        try {
+            Class<?> flagsClass = XposedHelpers.findClass("com.android.window.flags.Flags", lpparam.classLoader);
+            XposedHelpers.findAndHookMethod(
+                flagsClass,
+                "activityWindowInfoFlag",
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        param.setResult(true); // 或者根据需要返回 false
+                    }
+                }
+            );
+            XposedBridge.log("ActivityEmbeddingHook: [Success] Patched missing Flags.activityWindowInfoFlag()");
+        } catch (Throwable e) {
+            // 如果该类或方法在某些应用中不存在，安全忽略
+        }
         // 更直接的办法：直接 Hook 静态方法所在的主动检测逻辑，或者通过捕获并返回代理对象
         try {
             // 尝试直接 Hook 常见的扩展获取入口
