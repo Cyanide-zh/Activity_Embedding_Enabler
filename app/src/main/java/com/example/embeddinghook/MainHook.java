@@ -10,7 +10,7 @@ public class MainHook implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        / 1. 严格排除系统核心进程（system_server），防止引发系统级 Bootloop
+        // 1. 严格排除系统核心进程（system_server），防止引发系统级 Bootloop
         // 允许系统应用（如设置）和所有第三方应用正常加载
 		if ("android".equals(lpparam.packageName)) {
             return;
