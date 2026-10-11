@@ -10,40 +10,47 @@ public class MainHook implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        // 1. 排除系统核心进程，避免不必要的性能开销或潜在冲突
+        // 1. 严格排除系统核心进程（system_server），防止引发系统级 Bootloop
+        // 允许系统应用（如设置）和所有第三方应用正常加载
         if ("android".equals(lpparam.packageName)) {
             return;
         }
 
-        // 2. Hook Jetpack WindowManager Extensions 的分屏支持状态判定
-        // 现代支持 Activity Embedding 的 App 通常会调用 extensions 层的相关判断
         try {
+            // 2. 寻找目标类 SplitController
             Class<?> splitControllerClass = XposedHelpers.findClass(
-                "androidx.window.embedding.SplitController", 
+                "androidx.window.embedding.SplitController",
                 lpparam.classLoader
             );
-    
-            // 尝试 Hook 获取状态的方法或属性
+
+            // 3. Hook 获取分屏支持状态的方法
             XposedHelpers.findAndHookMethod(
-                splitControllerClass, 
-                "getSplitSupportStatus", 
+                splitControllerClass,
+                "getSplitSupportStatus",
                 new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        // 如果返回的是枚举或特定对象，可以尝试将其篡改或直接返回对应可用状态
-                        Object result = param.getResult();
-                        if (result != null) {
-                            XposedBridge.log("SplitSupportStatus current: " + result.toString());
-                            // 若需要强行设为可用，可根据实际反编译出的枚举类进行替换
+                        try {
+                            // 4. 获取新版 API 的 SplitSupportStatus 类及 SPLIT_AVAILABLE 静态实例
+                            Class<?> statusClass = XposedHelpers.findClass(
+                                "androidx.window.embedding.SplitSupportStatus",
+                                lpparam.classLoader
+                            );
+                            Object splitAvailable = XposedHelpers.getStaticObjectField(statusClass, "SPLIT_AVAILABLE");
+
+                            if (splitAvailable != null) {
+                                // 5. 强制将结果替换为可用状态
+                                param.setResult(splitAvailable);
+                                XposedBridge.log("ActivityEmbeddingHook: Faked SplitSupportStatus to SPLIT_AVAILABLE in " + lpparam.packageName);
+                            }
+                        } catch (Throwable e) {
+                            XposedBridge.log("ActivityEmbeddingHook: Failed to set SPLIT_AVAILABLE in " + lpparam.packageName + " -> " + e.getMessage());
                         }
                     }
                 }
             );
         } catch (Throwable e) {
-            // 部分未集成该类库的应用会抛出 ClassNotFoundException，直接忽略即可
+            // 忽略未集成 Jetpack WindowManager 的应用（静默失败，避免日志污染）
         }
-
-        // 3. 补充：部分应用可能直接通过窗口宽度或 WindowMetrics 动态计算，
-        // 如果上面方法未生效，可以结合前文提到的 WindowMetrics.getBounds 一起 Hook
     }
 }
